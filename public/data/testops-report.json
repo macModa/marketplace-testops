@@ -1,0 +1,139 @@
+{
+  "schemaVersion": "1.0.0",
+  "generatedAt": "2026-10-26T21:34:30.276Z",
+  "environment": "local",
+  "repository": "marketplace",
+  "git": {
+    "commitSha": "80598c4",
+    "author": "macModa",
+    "commitDate": "2026-10-26 18:25:02 +0100",
+    "commitMessage": "test: isolate Spring context tests with H2"
+  },
+  "summary": {
+    "totalSuites": 4,
+    "totalTests": 5,
+    "passed": 4,
+    "failed": 1,
+    "errors": 0,
+    "skipped": 0,
+    "successRate": 80,
+    "durationMs": 9503
+  },
+  "suites": [
+    {
+      "id": "surefire-TEST-com.marketplace.MarketplaceApplicationTests",
+      "source": "java",
+      "suiteName": "com.marketplace.MarketplaceApplicationTests",
+      "status": "passed",
+      "executedAt": "2026-10-26T20:25:15.592Z",
+      "durationMs": 8274,
+      "testsCount": 1,
+      "passedCount": 1,
+      "failedCount": 0,
+      "errorCount": 0,
+      "skippedCount": 0,
+      "testCases": [
+        {
+          "id": "com.marketplace.MarketplaceApplicationTests#contextLoads",
+          "name": "contextLoads",
+          "className": "com.marketplace.MarketplaceApplicationTests",
+          "status": "passed",
+          "durationMs": 602
+        }
+      ],
+      "provenance": "Surefire XML: TEST-com.marketplace.MarketplaceApplicationTests.xml"
+    },
+    {
+      "id": "surefire-TEST-com.marketplace.service.ProductServiceTest",
+      "source": "java",
+      "suiteName": "com.marketplace.service.ProductServiceTest",
+      "status": "passed",
+      "executedAt": "2026-10-26T20:25:16.615Z",
+      "durationMs": 779,
+      "testsCount": 2,
+      "passedCount": 2,
+      "failedCount": 0,
+      "errorCount": 0,
+      "skippedCount": 0,
+      "testCases": [
+        {
+          "id": "com.marketplace.service.ProductServiceTest#getProductById_whenProductDoesNotExist_returns404",
+          "name": "getProductById_whenProductDoesNotExist_returns404",
+          "className": "com.marketplace.service.ProductServiceTest",
+          "status": "passed",
+          "durationMs": 518
+        },
+        {
+          "id": "com.marketplace.service.ProductServiceTest#updateProduct_whenAnotherArtisanOwnsProduct_returns403",
+          "name": "updateProduct_whenAnotherArtisanOwnsProduct_returns403",
+          "className": "com.marketplace.service.ProductServiceTest",
+          "status": "passed",
+          "durationMs": 253
+        }
+      ],
+      "provenance": "Surefire XML: TEST-com.marketplace.service.ProductServiceTest.xml"
+    },
+    {
+      "id": "quality-guardian-quality-report.json",
+      "source": "python",
+      "suiteName": "Quality Guardian (quality-report.json)",
+      "status": "failed",
+      "executedAt": "2026-10-25T10:13:46.290Z",
+      "durationMs": 450,
+      "testsCount": 1,
+      "passedCount": 0,
+      "failedCount": 1,
+      "errorCount": 0,
+      "skippedCount": 0,
+      "testCases": [
+        {
+          "id": "qg-finding-1",
+          "name": "SECRET_ASSIGNMENT in .env (L10)",
+          "className": ".env",
+          "status": "failed",
+          "durationMs": 0,
+          "errorMessage": "Potential hard-coded secret detected; value withheld.",
+          "severity": "WARNING",
+          "rule": "SECRET_ASSIGNMENT",
+          "file": ".env",
+          "line": 10
+        }
+      ],
+      "provenance": "Quality Guardian JSON: quality-report.json",
+      "meta": {
+        "findingCount": 1,
+        "allFindings": [
+          {
+            "rule": "SECRET_ASSIGNMENT",
+            "severity": "WARNING",
+            "message": "Potential hard-coded secret detected; value withheld.",
+            "file": ".env",
+            "line": 10
+          }
+        ]
+      }
+    },
+    {
+      "id": "workflow-ci.yml",
+      "source": "github-actions",
+      "suiteName": "GitHub Actions: Java CI with Maven",
+      "status": "passed",
+      "executedAt": "2026-10-26T16:23:35.547Z",
+      "durationMs": 0,
+      "testsCount": 1,
+      "passedCount": 1,
+      "failedCount": 0,
+      "errorCount": 0,
+      "skippedCount": 0,
+      "testCases": [
+        {
+          "id": "step-ci.yml",
+          "name": "Workflow configuration: ci.yml",
+          "className": "ci.yml",
+          "status": "passed"
+        }
+      ],
+      "provenance": ".github/workflows/ci.yml"
+    }
+  ]
+}
