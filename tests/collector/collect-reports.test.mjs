@@ -31,8 +31,8 @@ const CANDIDATE_SCRIPT = path.resolve(FRONTEND_ROOT, 'scripts', 'collect-reports
 const PROTECTED_FILES = {
   candidate: path.resolve(FRONTEND_ROOT, 'scripts', 'collect-reports.candidate.mjs'),
   active: path.resolve(FRONTEND_ROOT, 'scripts', 'collect-reports.mjs'),
-  beforeFix: path.resolve(FRONTEND_ROOT, 'scripts', 'collect-reports.before-fix.mjs'),
-  restored: path.resolve(FRONTEND_ROOT, 'scripts', 'collect-reports.restored.mjs'),
+  beforeFix: path.resolve(FRONTEND_ROOT, 'tests', 'fixtures', 'collector', 'collect-reports.before-fix.mjs'),
+  restored: path.resolve(FRONTEND_ROOT, 'tests', 'fixtures', 'collector', 'collect-reports.restored.mjs'),
   liveReport: path.resolve(FRONTEND_ROOT, 'public', 'data', 'testops-report.json'),
 };
 
@@ -310,10 +310,7 @@ describe('Phase 4.2 — Caractérisation finale et fiabilité des preuves (Schem
         assert.equal(suite.testsCount, 1);
         assert.equal(suite.skippedCount, 1);
         assert.equal(suite.passedCount, 0);
-        // Caractérisation du comportement actuel :
-        // Le code actuel fait : (failures > 0 || errors > 0) ? 'failed' : tests === 0 ? 'unknown' : 'passed'
-        // Donc si tests=1, failures=0, errors=0 => status = 'passed' !
-        assert.equal(suite.status, 'passed', 'Caractérisation : suite 100% ignorée reçoit actuellement le statut passed');
+        assert.equal(suite.status, 'skipped');
       } finally {
         cleanup();
       }
@@ -365,10 +362,13 @@ describe('Phase 4.2 — Caractérisation finale et fiabilité des preuves (Schem
         );
 
         const res = runCandidateCollector({ surefireDir, guardianDir, outputFile });
-        // Assertion stricte : parseInt('not_a_number') = NaN, validatePayload lève une exception car NaN !== NaN
-        assert.equal(res.exitCode, 1, 'Le collecteur doit lever une erreur d\'invariance et quitter avec le code 1');
-        assert.match(res.stderr, /summary\.totalTests=NaN does not match sum of suite testsCount=NaN/);
-        assert.equal(fs.existsSync(outputFile), false, 'Le fichier JSON de sortie ne doit pas être généré');
+        assert.equal(res.exitCode, 0);
+        assert.ok(res.json);
+        assert.equal(res.json.suites.length, 0);
+        assert.equal(res.json.summary.totalTests, 0);
+        assert.equal(res.json.summary.durationMs, 0);
+        assert.match(res.stderr, /Invalid non-negative integer/);
+        assert.equal(fs.existsSync(outputFile), true);
       } finally {
         cleanup();
       }
@@ -380,16 +380,40 @@ describe('Phase 4.2 — Caractérisation finale et fiabilité des preuves (Schem
         fs.writeFileSync(
           path.join(surefireDir, 'TEST-InvalidTime.xml'),
           `<testsuite name="InvalidTime" tests="1" failures="0" errors="0" skipped="0" time="invalid">
-            <testcase name="tc1" classname="InvalidTime" time="foo"/>
+            <testcase name="tc1" classname="InvalidTime" time="1.0"/>
           </testsuite>`
         );
 
         const res = runCandidateCollector({ surefireDir, guardianDir, outputFile });
-        // Assertion stricte : parseFloat('invalid') => NaN => sérialisé en null dans JSON
-        assert.equal(res.exitCode, 0, 'Le collecteur termine avec code 0');
-        assert.ok(res.json, 'Le fichier JSON de sortie est généré');
-        assert.equal(res.json.suites[0].durationMs, null, 'durationMs NaN est sérialisé en null');
-        assert.equal(res.json.summary.durationMs, null, 'summary.durationMs NaN est sérialisé en null');
+
+        assert.equal(res.exitCode, 0);
+        assert.ok(res.json);
+        assert.equal(res.json.suites.length, 0);
+        assert.equal(res.json.summary.totalTests, 0);
+        assert.equal(res.json.summary.durationMs, 0);
+        assert.match(res.stderr, /Invalid non-negative duration/);
+      } finally {
+        cleanup();
+      }
+    });
+
+    it('9b. Dur?e testcase invalide', () => {
+      const { surefireDir, guardianDir, outputFile, cleanup } = createTestWorkspace('tc9b');
+      try {
+        fs.writeFileSync(
+          path.join(surefireDir, 'TEST-InvalidTestcaseTime.xml'),
+          `<testsuite name="InvalidTestcaseTime" tests="1" failures="0" errors="0" skipped="0" time="1.0">
+            <testcase name="tc1" classname="InvalidTestcaseTime" time="foo"/>
+          </testsuite>`
+        );
+
+        const res = runCandidateCollector({ surefireDir, guardianDir, outputFile });
+        assert.equal(res.exitCode, 0);
+        assert.ok(res.json);
+        assert.equal(res.json.suites.length, 0);
+        assert.equal(res.json.summary.totalTests, 0);
+        assert.equal(res.json.summary.durationMs, 0);
+        assert.match(res.stderr, /Invalid non-negative duration/);
       } finally {
         cleanup();
       }
@@ -406,14 +430,14 @@ describe('Phase 4.2 — Caractérisation finale et fiabilité des preuves (Schem
         );
 
         const res = runCandidateCollector({ surefireDir, guardianDir, outputFile });
-        // Assertion stricte : failures="-1" est conservé tel quel par parseInt sans validation de positivité
-        assert.equal(res.exitCode, 0, 'Le collecteur termine avec code 0');
-        assert.ok(res.json, 'Le fichier JSON de sortie est généré');
-        const s = res.json.suites[0];
-        assert.equal(s.failedCount, -1, 'Caractérisation : failures="-1" est conservé négatif');
-        assert.equal(s.passedCount, 3, 'passedCount vaut Math.max(0, 2 - (-1)) = 3');
-        assert.equal(res.json.summary.failed, -1, 'summary.failed conserve -1');
-        assert.equal(res.json.summary.passed, 3, 'summary.passed conserve 3');
+        assert.equal(res.exitCode, 0);
+        assert.ok(res.json);
+        assert.equal(res.json.suites.length, 0);
+        assert.equal(res.json.summary.totalTests, 0);
+        assert.equal(res.json.summary.failed, 0);
+        assert.equal(res.json.summary.passed, 0);
+        assert.equal(res.json.summary.durationMs, 0);
+        assert.match(res.stderr, /Invalid non-negative integer/);
       } finally {
         cleanup();
       }

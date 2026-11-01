@@ -212,108 +212,113 @@ function parseSurefireXml(filePath) {
   }
 
   try {
-    // Extract <testsuite ...> opening tag
     const suiteMatch = content.match(/<testsuite\b([^>]*)>/i);
     if (!suiteMatch) {
-      console.warn(`[WARN] No <testsuite> element found in ${path.basename(filePath)} — skipped.`);
+      console.warn(`[WARN] No <testsuite> element found in ${path.basename(filePath)} ? skipped.`);
       return null;
     }
 
     const suiteAttrs = suiteMatch[1];
-    const name      = parseXmlAttribute(suiteAttrs, 'name') || path.basename(filePath, '.xml');
-    const tests     = parseInt(parseXmlAttribute(suiteAttrs, 'tests')    || '0', 10);
-    const failures  = parseInt(parseXmlAttribute(suiteAttrs, 'failures') || '0', 10);
-    const errors    = parseInt(parseXmlAttribute(suiteAttrs, 'errors')   || '0', 10);
-    const skipped   = parseInt(parseXmlAttribute(suiteAttrs, 'skipped')  || '0', 10);
-    const timeSec   = parseFloat(parseXmlAttribute(suiteAttrs, 'time')   || '0');
+    const name = parseXmlAttribute(suiteAttrs, 'name') || path.basename(filePath, '.xml');
 
-    // Validate counts — use XML values as-is but warn on inconsistency
-    const passed = Math.max(0, tests - failures - errors - skipped);
-    const expectedTotal = failures + errors + skipped + passed;
-    if (tests > 0 && expectedTotal !== tests) {
-      console.warn(
-        `[WARN] ${path.basename(filePath)}: testsCount=${tests} but ` +
-        `passed+failed+error+skipped=${expectedTotal}. Using XML values as-is.`
-      );
+    const parseCount = (attribute) => {
+      const raw = parseXmlAttribute(suiteAttrs, attribute) ?? '0';
+      if (!/^\d+$/.test(raw) || !Number.isSafeInteger(Number(raw))) {
+        throw new Error(`Invalid non-negative integer "${raw}" for ${attribute}`);
+      }
+      return Number(raw);
+    };
+
+    const parseDuration = (raw, label) => {
+      if (raw === null || raw === undefined || raw === '') raw = '0';
+      if (!/^\d+(?:\.\d+)?$/.test(raw) || !Number.isFinite(Number(raw))) {
+        throw new Error(`Invalid non-negative duration "${raw}" for ${label}`);
+      }
+      return Number(raw);
+    };
+
+    const tests = parseCount('tests');
+    const failures = parseCount('failures');
+    const errors = parseCount('errors');
+    const skipped = parseCount('skipped');
+    const timeSec = parseDuration(parseXmlAttribute(suiteAttrs, 'time'), 'suite time');
+
+    if (failures + errors + skipped > tests) {
+      throw new Error(`Inconsistent counts: failures + errors + skipped exceed tests (${tests})`);
     }
 
-    // Parse individual <testcase> elements
+    const passed = tests - failures - errors - skipped;
     const testCases = [];
     const tcRegex = /<testcase\b([^>]*?)(\/>([\s\S]*?)|>([\s\S]*?)<\/testcase>)/gi;
     let m;
 
     while ((m = tcRegex.exec(content)) !== null) {
       const tcAttrs = m[1];
-      // m[3] captures content after self-closing />; m[4] captures body inside >...</testcase>
-      const tcBody  = m[4] || '';
-      const tcName  = parseXmlAttribute(tcAttrs, 'name')      || 'Unnamed Test';
+      const tcBody = m[4] || '';
+      const tcName = parseXmlAttribute(tcAttrs, 'name') || 'Unnamed Test';
       const tcClass = parseXmlAttribute(tcAttrs, 'classname') || name;
-      const tcTime  = parseFloat(parseXmlAttribute(tcAttrs, 'time') || '0');
+      const tcTime = parseDuration(parseXmlAttribute(tcAttrs, 'time'), `testcase ${tcName} time`);
 
-      let tcStatus       = 'passed';
-      let tcErrorMessage = undefined;
-      let tcStackTrace   = undefined;
+      let tcStatus = 'passed';
+      let tcErrorMessage;
+      let tcStackTrace;
 
-      const failureM  = tcBody.match(/<failure\b([^>]*)>([\s\S]*?)<\/failure>/i);
-      const errorM    = tcBody.match(/<error\b([^>]*)>([\s\S]*?)<\/error>/i);
-      const skippedM  = tcBody.match(/<skipped\b([^>]*?)(\/>([\s\S]*?)|>([\s\S]*?)<\/skipped>)/i);
+      const failureM = tcBody.match(/<failure\b([^>]*)>([\s\S]*?)<\/failure>/i);
+      const errorM = tcBody.match(/<error\b([^>]*)>([\s\S]*?)<\/error>/i);
+      const skippedM = tcBody.match(/<skipped\b([^>]*?)(\/>([\s\S]*?)|>([\s\S]*?)<\/skipped>)/i);
 
       if (failureM) {
-        tcStatus       = 'failed';
+        tcStatus = 'failed';
         tcErrorMessage = parseXmlAttribute(failureM[1], 'message') || 'Assertion failed';
-        tcStackTrace   = failureM[2]?.trim() || undefined;
+        tcStackTrace = failureM[2]?.trim() || undefined;
       } else if (errorM) {
-        tcStatus       = 'error';
+        tcStatus = 'error';
         tcErrorMessage = parseXmlAttribute(errorM[1], 'message') || 'Execution error';
-        tcStackTrace   = errorM[2]?.trim() || undefined;
+        tcStackTrace = errorM[2]?.trim() || undefined;
       } else if (skippedM) {
-        tcStatus       = 'skipped';
+        tcStatus = 'skipped';
         tcErrorMessage = parseXmlAttribute(skippedM[1], 'message') || 'Test skipped';
       }
 
-      // Build lean TestCase — NO severity, rule, file, line (those belong to DiagnosticFinding)
       const tc = {
-        id:        `${tcClass}#${tcName}`,
-        name:      tcName,
+        id: `${tcClass}#${tcName}`,
+        name: tcName,
         className: tcClass,
-        status:    tcStatus,
+        status: tcStatus,
         durationMs: Math.round(tcTime * 1000),
       };
       if (tcErrorMessage !== undefined) tc.errorMessage = tcErrorMessage;
-      if (tcStackTrace   !== undefined) tc.stackTrace   = tcStackTrace;
-
+      if (tcStackTrace !== undefined) tc.stackTrace = tcStackTrace;
       testCases.push(tc);
     }
 
     const overallStatus =
       failures > 0 || errors > 0 ? 'failed' :
-      tests === 0                 ? 'unknown' :
-                                    'passed';
+      tests === 0 ? 'unknown' :
+      skipped === tests ? 'skipped' :
+      'passed';
 
     const fileStat = fs.statSync(filePath);
-
     return {
-      id:          `surefire-${path.basename(filePath, '.xml')}`,
-      source:      'java',
-      suiteName:   name,
-      status:      overallStatus,
-      executedAt:  fileStat.mtime.toISOString(),
-      durationMs:  Math.round(timeSec * 1000),
-      testsCount:  tests,
+      id: `surefire-${path.basename(filePath, '.xml')}`,
+      source: 'java',
+      suiteName: name,
+      status: overallStatus,
+      executedAt: fileStat.mtime.toISOString(),
+      durationMs: Math.round(timeSec * 1000),
+      testsCount: tests,
       passedCount: passed,
       failedCount: failures,
-      errorCount:  errors,
+      errorCount: errors,
       skippedCount: skipped,
       testCases,
-      provenance:  `Surefire XML: ${path.basename(filePath)}`,
+      provenance: `Surefire XML: ${path.basename(filePath)}`,
     };
-
   } catch (err) {
     console.warn(`[WARN] Failed to parse ${path.basename(filePath)}: ${err.message}`);
     return null;
   }
 }
-
 /**
  * Collect all Surefire TEST-*.xml files from a directory.
  *
