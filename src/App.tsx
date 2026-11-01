@@ -8,6 +8,7 @@ import { SourceBreakdown } from './components/SourceBreakdown';
 import { TestRunsTable } from './components/TestRunsTable';
 import { TestDetailModal } from './components/TestDetailModal';
 import { StatusBanner } from './components/StatusBanner';
+import { CloudScanPanel } from './components/CloudScanPanel';
 
 export function App() {
   const [report, setReport] = useState<TestOpsReport | null>(null);
@@ -18,7 +19,7 @@ export function App() {
   const [selectedTestCase, setSelectedTestCase] = useState<
     (TestCase & { suiteName: string; source: TestSource }) | null
   >(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'sources' | 'history'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'sources' | 'history' | 'cloud'>('overview');
 
   const refreshData = useCallback(async (forceDemo: boolean) => {
     setIsLoading(true);
@@ -100,6 +101,13 @@ export function App() {
           >
             ◷ <span>Registre des tests</span>
           </button>
+          <button
+            type="button"
+            className={`nav-item ${activeTab === 'cloud' ? 'active' : ''}`}
+            onClick={() => setActiveTab('cloud')}
+          >
+            ☁ <span>Quality Guardian Cloud</span>
+          </button>
         </nav>
 
         <div className="sidebar-bottom">
@@ -161,6 +169,8 @@ export function App() {
             </div>
           </>
         )}
+
+        {activeTab === 'cloud' && <CloudScanPanel />}
 
         <footer>
           Marketplace TestOps Dashboard • Développé pour portfolio QA Automation & Harness Engineering •
